@@ -1,121 +1,175 @@
 "use client";
 
-import Link from "next/link";
-import Image from "next/image";
-import { motion, AnimatePresence } from "framer-motion";
-import { Minus, Plus, Trash2, ShoppingBag } from "lucide-react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useCart } from "@/context/CartContext";
-import { formatUGX } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
+import { formatUGX, generateId } from "@/lib/utils";
+import { addOrder } from "@/lib/storage";
+import { Order } from "@/lib/types";
+import PaymentModal, { PaymentMethod } from "@/components/PaymentModal";
 
-export default function CartPage() {
-  const { cart, updateQuantity, removeFromCart, totalPrice } = useCart();
+export default function CheckoutPage() {
+  const { cart, totalPrice, clearCart } = useCart();
+  const { user } = useAuth();
+  const router = useRouter();
+
+  const [form, setForm] = useState({
+    name: user?.name ?? "",
+    email: user?.email ?? "",
+    phone: user?.phone ?? "",
+    address: "",
+  });
+  const [modalOpen, setModalOpen] = useState(false);
+  const [error, setError] = useState("");
+
+  function handleChange(field: keyof typeof form, value: string) {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.name || !form.email || !form.phone || !form.address) {
+      setError("Please fill in all fields to continue.");
+      return;
+    }
+    setError("");
+    setModalOpen(true);
+  }
+
+  function handleConfirmPayment(method: PaymentMethod) {
+    const order: Order = {
+      id: generateId("KAE"),
+      createdAt: new Date().toISOString(),
+      customer: form,
+      items: cart.map((item) => ({
+        productId: item.productId,
+        name: item.name,
+        variant: item.variant,
+        price: item.price,
+        quantity: item.quantity,
+        image: item.image,
+      })),
+      total: totalPrice,
+      paymentMethod: method,
+      status: "Placed",
+    };
+    addOrder(order);
+    clearCart();
+    setModalOpen(false);
+    router.push(`/account?order=${order.id}`);
+  }
 
   if (cart.length === 0) {
     return (
       <div className="max-w-md mx-auto px-4 py-24 text-center">
-        <ShoppingBag size={40} className="mx-auto text-navy/30 mb-4" />
         <h1 className="font-display text-2xl font-semibold text-navy mb-2">
-          Your cart is empty
+          Nothing to check out
         </h1>
-        <p className="text-navy/50 text-sm mb-6">
-          Browse the collection and add pieces you love.
-        </p>
-        <Link
-          href="/"
-          className="inline-block bg-navy text-white px-6 py-3 rounded-full text-sm font-medium hover:bg-navy-light transition-colors"
-        >
-          Continue Shopping
-        </Link>
+        <p className="text-navy/50 text-sm">Add something to your cart first.</p>
       </div>
     );
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8 pb-32">
+    <div className="max-w-2xl mx-auto px-4 py-8">
       <h1 className="font-display text-3xl font-semibold text-navy mb-6">
-        Your Cart
+        Checkout
       </h1>
 
-      <div className="space-y-4">
-        <AnimatePresence>
-          {cart.map((item) => (
-            <motion.div
-              key={item.productId}
-              layout
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, x: -40 }}
-              className="flex gap-4 bg-white border border-navy/10 rounded-2xl p-3 shadow-card"
-            >
-              <div className="relative w-20 h-24 shrink-0 rounded-xl overflow-hidden bg-cream">
-                <Image src={item.image} alt={item.name} fill className="object-cover" />
+      <div className="grid gap-8">
+        {/* Order summary */}
+        <div className="bg-cream rounded-2xl p-5">
+          <h2 className="font-semibold text-navy mb-3">Order Summary</h2>
+          <div className="space-y-2 text-sm">
+            {cart.map((item) => (
+              <div key={item.productId} className="flex justify-between text-navy/70">
+                <span>
+                  {item.name} × {item.quantity}
+                </span>
+                <span>{formatUGX(item.price * item.quantity)}</span>
               </div>
-
-              <div className="flex-1 flex flex-col justify-between">
-                <div>
-                  <h3 className="font-medium text-navy text-sm leading-snug">
-                    {item.name}
-                    {item.variant && (
-                      <span className="text-navy/50"> — {item.variant}</span>
-                    )}
-                  </h3>
-                  <p className="text-sm font-semibold text-navy mt-0.5">
-                    {formatUGX(item.price)}
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between mt-2">
-                  <div className="flex items-center gap-3 border border-navy/15 rounded-full px-2 py-1">
-                    <button
-                      onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                      aria-label="Decrease quantity"
-                      className="text-navy"
-                    >
-                      <Minus size={14} />
-                    </button>
-                    <span className="text-sm font-medium w-4 text-center">
-                      {item.quantity}
-                    </span>
-                    <button
-                      onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                      aria-label="Increase quantity"
-                      className="text-navy"
-                    >
-                      <Plus size={14} />
-                    </button>
-                  </div>
-
-                  <button
-                    onClick={() => removeFromCart(item.productId)}
-                    aria-label="Remove item"
-                    className="text-navy/40 hover:text-green transition-colors"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </div>
-
-      {/* Sticky checkout bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-navy/10 p-4">
-        <div className="max-w-2xl mx-auto flex items-center justify-between gap-4">
-          <div>
-            <p className="text-xs text-navy/50">Total</p>
-            <p className="font-display text-xl font-semibold text-navy">
-              {formatUGX(totalPrice)}
-            </p>
+            ))}
           </div>
-          <Link
-            href="/checkout"
-            className="bg-navy text-white px-8 py-3.5 rounded-full text-sm font-medium hover:bg-navy-light transition-colors"
-          >
-            Checkout
-          </Link>
+          <div className="border-t border-navy/10 mt-3 pt-3 flex justify-between font-semibold text-navy">
+            <span>Total</span>
+            <span>{formatUGX(totalPrice)}</span>
+          </div>
         </div>
+
+        {/* Guest checkout form */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <h2 className="font-semibold text-navy">Delivery Details</h2>
+
+          <Field
+            label="Full Name"
+            value={form.name}
+            onChange={(v) => handleChange("name", v)}
+          />
+          <Field
+            label="Email"
+            type="email"
+            value={form.email}
+            onChange={(v) => handleChange("email", v)}
+          />
+          <Field
+            label="Phone Number"
+            type="tel"
+            placeholder="0782 628 624"
+            value={form.phone}
+            onChange={(v) => handleChange("phone", v)}
+          />
+          <Field
+            label="Delivery Address"
+            placeholder="Street, area, city — Kampala, Uganda"
+            value={form.address}
+            onChange={(v) => handleChange("address", v)}
+          />
+
+          {error && <p className="text-red-600 text-sm">{error}</p>}
+
+          <button
+            type="submit"
+            className="w-full bg-navy text-white font-medium py-3.5 rounded-full hover:bg-navy-light transition-colors"
+          >
+            Continue to Payment
+          </button>
+        </form>
       </div>
+
+      <PaymentModal
+        open={modalOpen}
+        total={totalPrice}
+        onClose={() => setModalOpen(false)}
+        onConfirm={handleConfirmPayment}
+      />
     </div>
+  );
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+  type = "text",
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+  placeholder?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="text-sm text-navy/70 mb-1 block">{label}</span>
+      <input
+        type={type}
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full border border-navy/15 rounded-xl px-4 py-3 text-sm focus:border-green outline-none"
+      />
+    </label>
   );
 }
