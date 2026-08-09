@@ -40,7 +40,7 @@ export default function CartPage() {
         <AnimatePresence>
           {cart.map((item) => (
             <motion.div
-              key={item.productId}
+              key={`${item.productId}-${item.size ?? ""}-${item.color ?? ""}`}
               layout
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -59,6 +59,13 @@ export default function CartPage() {
                       <span className="text-navy/50"> — {item.variant}</span>
                     )}
                   </h3>
+                  {(item.size || item.color) && (
+                    <p className="text-xs text-navy/50 mt-0.5">
+                      {item.size && <span>Size: {item.size}</span>}
+                      {item.size && item.color && <span> · </span>}
+                      {item.color && <span>Color: {item.color}</span>}
+                    </p>
+                  )}
                   <p className="text-sm font-semibold text-navy mt-0.5">
                     {formatUGX(item.price)}
                   </p>
@@ -67,7 +74,9 @@ export default function CartPage() {
                 <div className="flex items-center justify-between mt-2">
                   <div className="flex items-center gap-3 border border-navy/15 rounded-full px-2 py-1">
                     <button
-                      onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                      onClick={() =>
+                        updateQuantity(item.productId, item.quantity - 1, item.size, item.color)
+                      }
                       aria-label="Decrease quantity"
                       className="text-navy"
                     >
@@ -77,7 +86,9 @@ export default function CartPage() {
                       {item.quantity}
                     </span>
                     <button
-                      onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                      onClick={() =>
+                        updateQuantity(item.productId, item.quantity + 1, item.size, item.color)
+                      }
                       aria-label="Increase quantity"
                       className="text-navy"
                     >
@@ -86,7 +97,7 @@ export default function CartPage() {
                   </div>
 
                   <button
-                    onClick={() => removeFromCart(item.productId)}
+                    onClick={() => removeFromCart(item.productId, item.size, item.color)}
                     aria-label="Remove item"
                     className="text-navy/40 hover:text-green transition-colors"
                   >
