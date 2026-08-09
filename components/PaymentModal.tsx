@@ -11,19 +11,25 @@ const PAYMENT_OPTIONS: {
   method: PaymentMethod;
   name: string;
   number: string;
-  color: string;
+  buttonLabel: string;
+  bg: string;
+  textColor: string;
 }[] = [
   {
     method: "MTN Mobile Money",
     name: "Tayomba Miria",
     number: "256782628624",
-    color: "#FFCC00",
+    buttonLabel: "Pay with MTN MoMo - Tayomba Miria 256782628624",
+    bg: "#FFCB05",
+    textColor: "#000000",
   },
   {
     method: "Airtel Money",
     name: "Malirire Christine",
     number: "256743457759",
-    color: "#ED1C24",
+    buttonLabel: "Pay with Airtel Money - Malirire Christine 256743457759",
+    bg: "#E40000",
+    textColor: "#FFFFFF",
   },
 ];
 
@@ -77,20 +83,20 @@ export default function PaymentModal({ open, total, onClose, onConfirm }: Props)
               Send payment via mobile money, then confirm below to place your order.
             </p>
 
-            {/* Method selector */}
-            <div className="flex gap-2 mb-4">
+            {/* Method selector — each button carries its own brand color and
+                spells out exactly who the payment goes to */}
+            <div className="flex flex-col gap-2.5 mb-4">
               {PAYMENT_OPTIONS.map((opt) => (
                 <button
                   key={opt.method}
                   onClick={() => setSelected(opt.method)}
-                  className={`flex-1 py-2.5 rounded-full text-sm font-medium border transition-colors flex items-center justify-center gap-1.5 ${
-                    selected === opt.method
-                      ? "bg-navy text-white border-navy"
-                      : "bg-white text-navy border-navy/20"
+                  style={{ backgroundColor: opt.bg, color: opt.textColor }}
+                  className={`w-full py-3 rounded-full text-sm font-semibold flex items-center justify-center gap-1.5 text-center px-3 transition-transform ${
+                    selected === opt.method ? "ring-2 ring-offset-2 ring-navy" : ""
                   }`}
                 >
                   <Smartphone size={14} />
-                  {opt.method}
+                  {opt.buttonLabel}
                 </button>
               ))}
             </div>
