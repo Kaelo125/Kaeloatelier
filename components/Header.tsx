@@ -33,7 +33,7 @@ export default function Header() {
           <span className="w-8 h-8 rounded-full bg-navy flex items-center justify-center">
             <Leaf size={16} className="text-green-light" />
           </span>
-          <span className="leading-none hidden xs:inline">
+          <span className="leading-none">
             <span className="block font-display font-semibold text-xl text-navy tracking-wide">
               Kaelō
             </span>
