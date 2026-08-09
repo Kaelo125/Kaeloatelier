@@ -7,7 +7,7 @@ import { getProducts, saveProducts, getOrders, saveOrders } from "@/lib/storage"
 import { CATEGORIES } from "@/lib/data";
 import { formatUGX, generateId } from "@/lib/utils";
 
-const ADMIN_PASSWORD = "admin123";
+const ADMIN_PASSWORD = "Rg6_Q7tRg6_Q7t";
 const SESSION_KEY = "kaelo_admin_session";
 const STATUS_OPTIONS: OrderStatus[] = ["Placed", "Processing", "Shipped", "Delivered"];
 const MAX_IMAGES = 4;
