@@ -3,6 +3,7 @@ import { Cormorant_Garamond, Inter } from "next/font/google";
 import "./globals.css";
 import { CartProvider } from "@/context/CartContext";
 import { AuthProvider } from "@/context/AuthContext";
+import { SearchProvider } from "@/context/SearchContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
@@ -36,9 +37,11 @@ export default function RootLayout({
       <body className="font-body min-h-screen flex flex-col bg-white text-navy antialiased">
         <AuthProvider>
           <CartProvider>
-            <Header />
-            <main className="flex-1">{children}</main>
-            <Footer />
+            <SearchProvider>
+              <Header />
+              <main className="flex-1">{children}</main>
+              <Footer />
+            </SearchProvider>
           </CartProvider>
         </AuthProvider>
       </body>
