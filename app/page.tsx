@@ -1,119 +1,56 @@
 "use client";
 
-import { useRef, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/AuthContext";
-import Captcha, { CaptchaHandle } from "@/components/Captcha";
+import { useEffect, useMemo, useState } from "react";
+import { Product, Category } from "@/lib/types";
+import { getProducts } from "@/lib/storage";
+import { CATEGORIES } from "@/lib/data";
+import NewArrivalsSlider from "@/components/NewArrivalsSlider";
+import CategoryFilter from "@/components/CategoryFilter";
+import ProductCard from "@/components/ProductCard";
 
-export default function RegisterPage() {
-  const { register } = useAuth();
-  const router = useRouter();
-  const captchaRef = useRef<CaptchaHandle>(null);
+export default function HomePage() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [activeCategory, setActiveCategory] = useState<Category | "All">("All");
 
-  const [form, setForm] = useState({ name: "", email: "", phone: "", password: "" });
-  const [error, setError] = useState("");
+  useEffect(() => {
+    setProducts(getProducts());
+  }, []);
 
-  function update(field: keyof typeof form, value: string) {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  }
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-
-    if (!captchaRef.current?.verify()) {
-      setError("Captcha answer is incorrect. Please try again.");
-      captchaRef.current?.reset();
-      return;
-    }
-    if (Object.values(form).some((v) => !v)) {
-      setError("Please fill in every field.");
-      return;
-    }
-
-    const result = register(form);
-    if (!result.ok) {
-      setError(result.error ?? "Something went wrong.");
-      captchaRef.current?.reset();
-      return;
-    }
-
-    router.push("/account");
-  }
+  const filtered = useMemo(() => {
+    if (activeCategory === "All") return products;
+    return products.filter((p) => p.category === activeCategory);
+  }, [products, activeCategory]);
 
   return (
-    <div className="max-w-sm mx-auto px-4 py-16">
-      <h1 className="font-display text-3xl font-semibold text-navy mb-1">
-        Create your account
-      </h1>
-      <p className="text-navy/50 text-sm mb-8">Join Kaelō Atelier for faster checkout.</p>
+    <div className="pb-16">
+      <NewArrivalsSlider />
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <label className="block">
-          <span className="text-sm text-navy/70 mb-1 block">Full Name</span>
-          <input
-            required
-            value={form.name}
-            onChange={(e) => update("name", e.target.value)}
-            className="w-full border border-navy/15 rounded-xl px-4 py-3 text-sm focus:border-green outline-none"
-          />
-        </label>
+      <CategoryFilter
+        categories={CATEGORIES}
+        active={activeCategory}
+        onChange={setActiveCategory}
+      />
 
-        <label className="block">
-          <span className="text-sm text-navy/70 mb-1 block">Email</span>
-          <input
-            type="email"
-            required
-            value={form.email}
-            onChange={(e) => update("email", e.target.value)}
-            className="w-full border border-navy/15 rounded-xl px-4 py-3 text-sm focus:border-green outline-none"
-          />
-        </label>
-
-        <label className="block">
-          <span className="text-sm text-navy/70 mb-1 block">Phone Number</span>
-          <input
-            type="tel"
-            required
-            placeholder="0782 628 624"
-            value={form.phone}
-            onChange={(e) => update("phone", e.target.value)}
-            className="w-full border border-navy/15 rounded-xl px-4 py-3 text-sm focus:border-green outline-none"
-          />
-        </label>
-
-        <label className="block">
-          <span className="text-sm text-navy/70 mb-1 block">Password</span>
-          <input
-            type="password"
-            required
-            value={form.password}
-            onChange={(e) => update("password", e.target.value)}
-            className="w-full border border-navy/15 rounded-xl px-4 py-3 text-sm focus:border-green outline-none"
-          />
-        </label>
-
-        <div>
-          <span className="text-sm text-navy/70 mb-1 block">Verify you're human</span>
-          <Captcha ref={captchaRef} onChange={() => {}} />
+      <section id="shop" className="max-w-6xl mx-auto px-4">
+        <div className="flex items-baseline justify-between mb-4">
+          <h2 className="font-display text-2xl font-semibold text-navy">
+            {activeCategory === "All" ? "Featured" : activeCategory}
+          </h2>
+          <span className="text-sm text-navy/50">{filtered.length} pieces</span>
         </div>
 
-        {error && <p className="text-red-600 text-sm">{error}</p>}
-
-        <button
-          type="submit"
-          className="w-full bg-navy text-white font-medium py-3.5 rounded-full hover:bg-navy-light transition-colors"
-        >
-          Create Account
-        </button>
-      </form>
-
-      <p className="text-sm text-navy/60 text-center mt-6">
-        Already have an account?{" "}
-        <Link href="/login" className="text-green font-medium">
-          Login
-        </Link>
-      </p>
+        {filtered.length === 0 ? (
+          <p className="text-navy/50 text-center py-16">
+            No pieces in this category yet — check back soon.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {filtered.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
-}
+                           }
