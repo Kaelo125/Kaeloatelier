@@ -12,9 +12,18 @@ import { getCart, saveCart } from "@/lib/storage";
 
 interface CartContextValue {
   cart: CartItem[];
-  addToCart: (product: Product, quantity?: number) => void;
-  removeFromCart: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
+  addToCart: (
+    product: Product,
+    quantity?: number,
+    options?: { size?: string; color?: string }
+  ) => void;
+  removeFromCart: (productId: string, size?: string, color?: string) => void;
+  updateQuantity: (
+    productId: string,
+    quantity: number,
+    size?: string,
+    color?: string
+  ) => void;
   clearCart: () => void;
   totalItems: number;
   totalPrice: number;
@@ -24,6 +33,21 @@ interface CartContextValue {
 }
 
 const CartContext = createContext<CartContextValue | undefined>(undefined);
+
+// A cart line is uniquely identified by product + chosen size + chosen color,
+// so the same product in two different sizes shows as two separate lines.
+function sameLine(
+  item: CartItem,
+  productId: string,
+  size?: string,
+  color?: string
+) {
+  return (
+    item.productId === productId &&
+    (item.size ?? "") === (size ?? "") &&
+    (item.color ?? "") === (color ?? "")
+  );
+}
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -41,12 +65,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (hydrated) saveCart(cart);
   }, [cart, hydrated]);
 
-  function addToCart(product: Product, quantity = 1) {
+  function addToCart(
+    product: Product,
+    quantity = 1,
+    options?: { size?: string; color?: string }
+  ) {
+    const size = options?.size;
+    const color = options?.color;
+
     setCart((prev) => {
-      const existing = prev.find((item) => item.productId === product.id);
+      const existing = prev.find((item) =>
+        sameLine(item, product.id, size, color)
+      );
       if (existing) {
         return prev.map((item) =>
-          item.productId === product.id
+          sameLine(item, product.id, size, color)
             ? { ...item, quantity: item.quantity + quantity }
             : item
         );
@@ -60,6 +93,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
           price: product.price,
           image: product.image,
           quantity,
+          size,
+          color,
         },
       ];
     });
@@ -68,18 +103,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setTimeout(() => setLastAdded(null), 900);
   }
 
-  function removeFromCart(productId: string) {
-    setCart((prev) => prev.filter((item) => item.productId !== productId));
+  function removeFromCart(productId: string, size?: string, color?: string) {
+    setCart((prev) => prev.filter((item) => !sameLine(item, productId, size, color)));
   }
 
-  function updateQuantity(productId: string, quantity: number) {
+  function updateQuantity(
+    productId: string,
+    quantity: number,
+    size?: string,
+    color?: string
+  ) {
     if (quantity <= 0) {
-      removeFromCart(productId);
+      removeFromCart(productId, size, color);
       return;
     }
     setCart((prev) =>
       prev.map((item) =>
-        item.productId === productId ? { ...item, quantity } : item
+        sameLine(item, productId, size, color) ? { ...item, quantity } : item
       )
     );
   }
