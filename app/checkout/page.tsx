@@ -4,8 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
-import { formatUGX, generateId } from "@/lib/utils";
-import { addOrder } from "@/lib/storage";
+import { formatUGX, generateId, generateOrderNumber } from "@/lib/utils";
+import { addOrder, getOrders } from "@/lib/storage";
 import { Order } from "@/lib/types";
 import PaymentModal, { PaymentMethod } from "@/components/PaymentModal";
 
@@ -38,8 +38,15 @@ export default function CheckoutPage() {
   }
 
   function handleConfirmPayment(method: PaymentMethod) {
+    // Count today's orders so far, to build a friendly sequential order number
+    const todayStr = new Date().toDateString();
+    const ordersToday = getOrders().filter(
+      (o) => new Date(o.createdAt).toDateString() === todayStr
+    ).length;
+
     const order: Order = {
       id: generateId("KAE"),
+      orderNumber: generateOrderNumber(ordersToday),
       createdAt: new Date().toISOString(),
       customer: form,
       items: cart.map((item) => ({
@@ -49,6 +56,8 @@ export default function CheckoutPage() {
         price: item.price,
         quantity: item.quantity,
         image: item.image,
+        size: item.size,
+        color: item.color,
       })),
       total: totalPrice,
       paymentMethod: method,
@@ -57,7 +66,7 @@ export default function CheckoutPage() {
     addOrder(order);
     clearCart();
     setModalOpen(false);
-    router.push(`/account?order=${order.id}`);
+    router.push(`/order-confirmation?order=${order.id}`);
   }
 
   if (cart.length === 0) {
@@ -83,9 +92,14 @@ export default function CheckoutPage() {
           <h2 className="font-semibold text-navy mb-3">Order Summary</h2>
           <div className="space-y-2 text-sm">
             {cart.map((item) => (
-              <div key={item.productId} className="flex justify-between text-navy/70">
+              <div
+                key={`${item.productId}-${item.size ?? ""}-${item.color ?? ""}`}
+                className="flex justify-between text-navy/70"
+              >
                 <span>
-                  {item.name} × {item.quantity}
+                  {item.name}
+                  {item.size ? ` (${item.size}${item.color ? ", " + item.color : ""})` : ""}
+                  {" "}× {item.quantity}
                 </span>
                 <span>{formatUGX(item.price * item.quantity)}</span>
               </div>
