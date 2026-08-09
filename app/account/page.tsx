@@ -103,7 +103,7 @@ function OrderCard({ order }: { order: Order }) {
   return (
     <div className="border border-navy/10 rounded-2xl p-5 shadow-card">
       <div className="flex items-center justify-between mb-1">
-        <p className="font-semibold text-navy text-sm">{order.id}</p>
+        <p className="font-semibold text-navy text-sm">{order.orderNumber ?? order.id}</p>
         <p className="text-xs text-navy/50">
           {new Date(order.createdAt).toLocaleDateString("en-UG", {
             day: "numeric",
@@ -157,10 +157,12 @@ function OrderCard({ order }: { order: Order }) {
       </div>
 
       <div className="space-y-2">
-        {order.items.map((item) => (
-          <div key={item.productId} className="flex justify-between text-sm text-navy/70">
+        {order.items.map((item, i) => (
+          <div key={i} className="flex justify-between text-sm text-navy/70">
             <span>
-              {item.name} × {item.quantity}
+              {item.name}
+              {item.size ? ` (${item.size}${item.color ? ", " + item.color : ""})` : ""}
+              {" "}× {item.quantity}
             </span>
             <span>{formatUGX(item.price * item.quantity)}</span>
           </div>
