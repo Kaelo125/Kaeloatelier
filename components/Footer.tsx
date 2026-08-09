@@ -75,11 +75,6 @@ export default function Footer() {
                 My Account
               </Link>
             </li>
-            <li>
-              <Link href="/admin" className="text-white/60 hover:text-white transition-colors">
-                Admin
-              </Link>
-            </li>
           </ul>
         </div>
       </div>
