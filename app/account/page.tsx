@@ -27,15 +27,23 @@ function AccountContent() {
   const highlightedOrderId = searchParams.get("order");
 
   const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const all = getOrders();
-    if (user) {
-      setOrders(all.filter((o) => o.customer.email === user.email));
-    } else if (highlightedOrderId) {
-      // Guest just checked out — show them their single order without login
-      setOrders(all.filter((o) => o.id === highlightedOrderId));
+    if (!user && !highlightedOrderId) {
+      setLoading(false);
+      return;
     }
+    getOrders()
+      .then((all) => {
+        if (user) {
+          setOrders(all.filter((o) => o.customer.email === user.email));
+        } else if (highlightedOrderId) {
+          // Guest just checked out — show them their single order without login
+          setOrders(all.filter((o) => o.id === highlightedOrderId));
+        }
+      })
+      .finally(() => setLoading(false));
   }, [user, highlightedOrderId]);
 
   if (!user && !highlightedOrderId) {
@@ -84,7 +92,9 @@ function AccountContent() {
 
       <h2 className="font-semibold text-navy mb-3">Order History</h2>
 
-      {orders.length === 0 ? (
+      {loading ? (
+        <p className="text-navy/50 text-sm py-8 text-center">Loading orders…</p>
+      ) : orders.length === 0 ? (
         <p className="text-navy/50 text-sm py-8 text-center">No orders yet.</p>
       ) : (
         <div className="space-y-6">
