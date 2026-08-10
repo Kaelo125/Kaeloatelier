@@ -65,6 +65,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (!hydrated) return;
     const ok = saveCart(cart);
     if (!ok) {
+      // Storage is full — usually from large uploaded product photos eating
+      // into the browser's ~5-10MB local storage budget. Let the shopper
+      // know plainly rather than failing silently (or crashing).
       alert(
         "Your cart couldn't be saved — your browser's storage is full. Try removing a few items, or clearing some space, then try again."
       );
