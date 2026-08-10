@@ -7,7 +7,6 @@ import { useAuth } from "@/context/AuthContext";
 import { formatUGX, generateId, generateOrderNumber } from "@/lib/utils";
 import { addOrder, getOrders } from "@/lib/storage";
 import { Order } from "@/lib/types";
-import PaymentModal, { PaymentMethod } from "@/components/PaymentModal";
 
 export default function CheckoutPage() {
   const { cart, totalPrice, clearCart } = useCart();
