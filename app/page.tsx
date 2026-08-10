@@ -15,6 +15,7 @@ const PRICE_CEILING = 1000000; // UGX — comfortably above the priciest seed it
 
 export default function HomePage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<Category | "All">("All");
   const [priceRange, setPriceRange] = useState<[number, number]>([
     PRICE_FLOOR,
@@ -22,9 +23,11 @@ export default function HomePage() {
   ]);
   const { query } = useSearch();
 
-  // Load the catalog (default seed + any admin edits) on mount
+  // Load the shared catalog from Supabase on mount
   useEffect(() => {
-    setProducts(getProducts());
+    getProducts()
+      .then(setProducts)
+      .finally(() => setLoading(false));
   }, []);
 
   const filtered = useMemo(() => {
@@ -96,7 +99,9 @@ export default function HomePage() {
           <span className="text-sm text-navy/50">{filtered.length} pieces</span>
         </div>
 
-        {filtered.length === 0 ? (
+        {loading ? (
+          <p className="text-navy/50 text-center py-16">Loading products…</p>
+        ) : filtered.length === 0 ? (
           <p className="text-navy/50 text-center py-16">
             No pieces match your search — try a different keyword or filter.
           </p>
