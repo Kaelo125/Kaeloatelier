@@ -31,9 +31,15 @@ function read<T>(key: string, fallback: T): T {
   }
 }
 
-function write<T>(key: string, value: T) {
-  if (!isBrowser()) return;
-  window.localStorage.setItem(key, JSON.stringify(value));
+function write<T>(key: string, value: T): boolean {
+  if (!isBrowser()) return false;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch (err) {
+    console.error(`Kaelo storage: failed to save "${key}"`, err);
+    return false;
+  }
 }
 
 // ----------------------------- Products -----------------------------------
