@@ -62,7 +62,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   // Persist every change back to localStorage
   useEffect(() => {
-    if (hydrated) saveCart(cart);
+    if (!hydrated) return;
+    const ok = saveCart(cart);
+    if (!ok) {
+      alert(
+        "Your cart couldn't be saved — your browser's storage is full. Try removing a few items, or clearing some space, then try again."
+      );
+    }
   }, [cart, hydrated]);
 
   function addToCart(
