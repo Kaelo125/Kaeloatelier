@@ -3,11 +3,19 @@
 import { useEffect, useState } from "react";
 import { Plus, Trash2, Pencil, X, LogOut, Upload } from "lucide-react";
 import { Product, Order, OrderStatus, Category } from "@/lib/types";
-import { getProducts, saveProducts, getOrders, saveOrders } from "@/lib/storage";
+import {
+  getProducts,
+  addProduct,
+  updateProduct,
+  deleteProduct,
+  uploadProductImage,
+  getOrders,
+  updateOrderStatus,
+} from "@/lib/storage";
 import { CATEGORIES } from "@/lib/data";
 import { formatUGX, generateId } from "@/lib/utils";
 
-const ADMIN_PASSWORD = "Rg6_Q7tRg6_Q7t";
+const ADMIN_PASSWORD = "admin123";
 const SESSION_KEY = "kaelo_admin_session";
 const STATUS_OPTIONS: OrderStatus[] = ["Placed", "Processing", "Shipped", "Delivered"];
 const MAX_IMAGES = 4;
@@ -74,38 +82,57 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
   const [tab, setTab] = useState<"products" | "orders">("products");
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Product | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  async function refresh() {
+    const [p, o] = await Promise.all([getProducts(), getOrders()]);
+    setProducts(p);
+    setOrders(o);
+  }
 
   useEffect(() => {
-    setProducts(getProducts());
-    setOrders(getOrders());
+    refresh().finally(() => setLoading(false));
   }, []);
 
-  function persistProducts(updated: Product[]) {
-    setProducts(updated);
-    saveProducts(updated);
-  }
-
-  function handleDelete(id: string) {
+  async function handleDelete(id: string) {
     if (!confirm("Delete this product?")) return;
-    persistProducts(products.filter((p) => p.id !== id));
+    const ok = await deleteProduct(id);
+    if (!ok) {
+      alert("Sorry, couldn't delete that product — please try again.");
+      return;
+    }
+    setProducts((prev) => prev.filter((p) => p.id !== id));
   }
 
-  function handleSave(product: Product) {
+  async function handleSave(product: Product) {
+    setSaving(true);
     const exists = products.some((p) => p.id === product.id);
-    const updated = exists
-      ? products.map((p) => (p.id === product.id ? product : p))
-      : [...products, product];
-    persistProducts(updated);
+    const ok = exists ? await updateProduct(product) : await addProduct(product);
+    setSaving(false);
+
+    if (!ok) {
+      alert("Sorry, couldn't save that product — please try again.");
+      return;
+    }
+
+    setProducts((prev) =>
+      exists ? prev.map((p) => (p.id === product.id ? product : p)) : [...prev, product]
+    );
     setShowForm(false);
     setEditing(null);
   }
 
-  function handleStatusChange(orderId: string, status: OrderStatus) {
-    const updated = orders.map((o) => (o.id === orderId ? { ...o, status } : o));
-    setOrders(updated);
-    saveOrders(updated);
+  async function handleStatusChange(orderId: string, status: OrderStatus) {
+    // Update the UI right away, then confirm with the database
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status } : o)));
+    const ok = await updateOrderStatus(orderId, status);
+    if (!ok) {
+      alert("Sorry, couldn't update that order's status — please try again.");
+      refresh();
+    }
   }
 
   function handleLogout() {
@@ -137,126 +164,131 @@ function AdminDashboard({ onLogout }: { onLogout: () => void }) {
         </TabButton>
       </div>
 
-      {tab === "products" && (
+      {loading ? (
+        <p className="text-navy/50 text-sm text-center py-16">Loading…</p>
+      ) : (
         <>
-          <button
-            onClick={() => {
-              setEditing(null);
-              setShowForm(true);
-            }}
-            className="flex items-center gap-1.5 bg-green text-white text-sm font-medium px-4 py-2.5 rounded-full mb-4 hover:bg-green-dark transition-colors"
-          >
-            <Plus size={15} /> Add Product
-          </button>
-
-          {/* Products table */}
-          <div className="border border-navy/10 rounded-xl overflow-hidden overflow-x-auto">
-            <table className="w-full text-sm min-w-[560px]">
-              <thead className="bg-cream text-navy/60 text-xs uppercase tracking-wide">
-                <tr>
-                  <th className="text-left px-4 py-3">Product</th>
-                  <th className="text-left px-4 py-3">Price</th>
-                  <th className="text-left px-4 py-3">Stock</th>
-                  <th className="text-right px-4 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {products.map((p) => (
-                  <tr key={p.id} className="border-t border-navy/10">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={p.images?.[0] ?? p.image}
-                          alt={p.name}
-                          className="w-11 h-13 object-cover rounded-lg shrink-0"
-                        />
-                        <div className="min-w-0">
-                          <p className="font-medium text-navy truncate">{p.name}</p>
-                          <p className="text-xs text-navy/50">{p.category}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-navy whitespace-nowrap">
-                      {formatUGX(p.price)}
-                    </td>
-                    <td className="px-4 py-3 text-navy">
-                      {p.stock ?? "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-3">
-                        <button
-                          onClick={() => {
-                            setEditing(p);
-                            setShowForm(true);
-                          }}
-                          aria-label="Edit"
-                          className="text-navy/60 hover:text-green"
-                        >
-                          <Pencil size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(p.id)}
-                          aria-label="Delete"
-                          className="text-navy/60 hover:text-red-600"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-
-      {tab === "orders" && (
-        <div className="space-y-3">
-          {orders.length === 0 && (
-            <p className="text-navy/50 text-sm text-center py-8">No orders yet.</p>
-          )}
-          {orders.map((order) => (
-            <div key={order.id} className="border border-navy/10 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-1">
-                <p className="font-semibold text-navy text-sm">
-                  {order.orderNumber ?? order.id}
-                </p>
-                <p className="text-xs text-navy/50">
-                  {new Date(order.createdAt).toLocaleDateString("en-UG")}
-                </p>
-              </div>
-              <p className="text-xs text-navy/60">
-                {order.customer.name} · {order.customer.phone} · {order.customer.email}
-              </p>
-              <p className="text-xs text-navy/60 mb-2">{order.customer.address}</p>
-              <p className="text-sm text-navy mb-3">
-                {order.items.length} item(s) · {formatUGX(order.total)} ·{" "}
-                {order.paymentMethod}
-              </p>
-
-              <select
-                value={order.status}
-                onChange={(e) =>
-                  handleStatusChange(order.id, e.target.value as OrderStatus)
-                }
-                className="text-sm border border-navy/15 rounded-lg px-3 py-2"
+          {tab === "products" && (
+            <>
+              <button
+                onClick={() => {
+                  setEditing(null);
+                  setShowForm(true);
+                }}
+                className="flex items-center gap-1.5 bg-green text-white text-sm font-medium px-4 py-2.5 rounded-full mb-4 hover:bg-green-dark transition-colors"
               >
-                {STATUS_OPTIONS.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
+                <Plus size={15} /> Add Product
+              </button>
+
+              {/* Products table */}
+              <div className="border border-navy/10 rounded-xl overflow-hidden overflow-x-auto">
+                <table className="w-full text-sm min-w-[560px]">
+                  <thead className="bg-cream text-navy/60 text-xs uppercase tracking-wide">
+                    <tr>
+                      <th className="text-left px-4 py-3">Product</th>
+                      <th className="text-left px-4 py-3">Price</th>
+                      <th className="text-left px-4 py-3">Stock</th>
+                      <th className="text-right px-4 py-3">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {products.map((p) => (
+                      <tr key={p.id} className="border-t border-navy/10">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={p.images?.[0] ?? p.image}
+                              alt={p.name}
+                              className="w-11 h-13 object-cover rounded-lg shrink-0"
+                            />
+                            <div className="min-w-0">
+                              <p className="font-medium text-navy truncate">{p.name}</p>
+                              <p className="text-xs text-navy/50">{p.category}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-navy whitespace-nowrap">
+                          {formatUGX(p.price)}
+                        </td>
+                        <td className="px-4 py-3 text-navy">{p.stock ?? "—"}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-end gap-3">
+                            <button
+                              onClick={() => {
+                                setEditing(p);
+                                setShowForm(true);
+                              }}
+                              aria-label="Edit"
+                              className="text-navy/60 hover:text-green"
+                            >
+                              <Pencil size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(p.id)}
+                              aria-label="Delete"
+                              className="text-navy/60 hover:text-red-600"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {tab === "orders" && (
+            <div className="space-y-3">
+              {orders.length === 0 && (
+                <p className="text-navy/50 text-sm text-center py-8">No orders yet.</p>
+              )}
+              {orders.map((order) => (
+                <div key={order.id} className="border border-navy/10 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="font-semibold text-navy text-sm">
+                      {order.orderNumber ?? order.id}
+                    </p>
+                    <p className="text-xs text-navy/50">
+                      {new Date(order.createdAt).toLocaleDateString("en-UG")}
+                    </p>
+                  </div>
+                  <p className="text-xs text-navy/60">
+                    {order.customer.name} · {order.customer.phone} · {order.customer.email}
+                  </p>
+                  <p className="text-xs text-navy/60 mb-2">{order.customer.address}</p>
+                  <p className="text-sm text-navy mb-3">
+                    {order.items.length} item(s) · {formatUGX(order.total)} ·{" "}
+                    {order.paymentMethod}
+                  </p>
+
+                  <select
+                    value={order.status}
+                    onChange={(e) =>
+                      handleStatusChange(order.id, e.target.value as OrderStatus)
+                    }
+                    className="text-sm border border-navy/15 rounded-lg px-3 py-2"
+                  >
+                    {STATUS_OPTIONS.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
 
       {showForm && (
         <ProductForm
           initial={editing}
+          saving={saving}
           onCancel={() => {
             setShowForm(false);
             setEditing(null);
@@ -300,26 +332,15 @@ function TabButton({
 
 // ---------------------------------------------------------------------------
 
-// Reads a File as a base64 data URL. In this no-backend build there is no
-// server to write into /public/uploads, so uploaded images are stored as
-// data URLs directly inside the product record in localStorage — visually
-// identical to a hosted image, just self-contained instead of a file path.
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
 function ProductForm({
   initial,
+  saving,
   onCancel,
   onSave,
   onDelete,
 }: {
   initial: Product | null;
+  saving: boolean;
   onCancel: () => void;
   onSave: (p: Product) => void;
   onDelete?: () => void;
@@ -351,17 +372,30 @@ function ProductForm({
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
+  // Uploads each selected photo to Supabase Storage (the "product-images"
+  // bucket) and stores the resulting public URL — a real, shareable image
+  // link, unlike the old approach of stuffing the raw photo into the
+  // browser's local storage.
   async function handleImageUpload(files: FileList | null) {
     if (!files || files.length === 0) return;
     setUploading(true);
     try {
       const current = form.images ?? [];
       const remainingSlots = MAX_IMAGES - current.length;
-      const toRead = Array.from(files).slice(0, Math.max(0, remainingSlots));
-      const dataUrls = await Promise.all(toRead.map(fileToDataUrl));
-      const updatedImages = [...current, ...dataUrls];
+      const toUpload = Array.from(files).slice(0, Math.max(0, remainingSlots));
+
+      const uploadedUrls: string[] = [];
+      for (const file of toUpload) {
+        const url = await uploadProductImage(file);
+        if (url) uploadedUrls.push(url);
+      }
+
+      if (uploadedUrls.length < toUpload.length) {
+        alert("Some images failed to upload — please try those again.");
+      }
+
+      const updatedImages = [...current, ...uploadedUrls];
       update("images", updatedImages);
-      // Keep the legacy single `image` field pointed at the first photo
       if (updatedImages[0]) update("image", updatedImages[0]);
     } finally {
       setUploading(false);
@@ -447,7 +481,7 @@ function ProductForm({
             />
           </label>
 
-          {/* Image upload — up to 4 photos with previews */}
+          {/* Image upload — up to 4 photos, uploaded to Supabase Storage */}
           <div>
             <span className="text-sm text-navy/70 mb-1 block">
               Product Images (up to {MAX_IMAGES})
@@ -477,6 +511,7 @@ function ProductForm({
                   accept="image/*"
                   multiple
                   className="hidden"
+                  disabled={uploading}
                   onChange={(e) => handleImageUpload(e.target.files)}
                 />
               </label>
@@ -524,10 +559,10 @@ function ProductForm({
           )}
           <button
             onClick={handleSubmit}
-            disabled={!form.name || form.price <= 0}
+            disabled={!form.name || form.price <= 0 || saving || uploading}
             className="flex-1 bg-navy text-white font-medium py-3.5 rounded-full hover:bg-navy-light transition-colors disabled:opacity-40"
           >
-            {initial ? "Update Product" : "Save Product"}
+            {saving ? "Saving..." : initial ? "Update Product" : "Save Product"}
           </button>
         </div>
       </div>
