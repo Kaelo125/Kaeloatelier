@@ -62,8 +62,8 @@ export function getCart(): CartItem[] {
   return read<CartItem[]>(KEYS.cart, []);
 }
 
-export function saveCart(cart: CartItem[]) {
-  write(KEYS.cart, cart);
+export function saveCart(cart: CartItem[]): boolean {
+  return write(KEYS.cart, cart);
 }
 
 // ------------------------------ Orders --------------------------------------
