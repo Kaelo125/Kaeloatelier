@@ -22,6 +22,7 @@ export default function CheckoutPage() {
   });
   const [modalOpen, setModalOpen] = useState(false);
   const [error, setError] = useState("");
+  const [placingOrder, setPlacingOrder] = useState(false);
 
   function handleChange(field: keyof typeof form, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -37,10 +38,13 @@ export default function CheckoutPage() {
     setModalOpen(true);
   }
 
-  function handleConfirmPayment(method: PaymentMethod) {
+  async function handleConfirmPayment(method: PaymentMethod) {
+    setPlacingOrder(true);
+
     // Count today's orders so far, to build a friendly sequential order number
     const todayStr = new Date().toDateString();
-    const ordersToday = getOrders().filter(
+    const existingOrders = await getOrders();
+    const ordersToday = existingOrders.filter(
       (o) => new Date(o.createdAt).toDateString() === todayStr
     ).length;
 
@@ -63,7 +67,15 @@ export default function CheckoutPage() {
       paymentMethod: method,
       status: "Placed",
     };
-    addOrder(order);
+
+    const ok = await addOrder(order);
+    setPlacingOrder(false);
+
+    if (!ok) {
+      alert("Sorry, we couldn't place your order — please check your connection and try again.");
+      return;
+    }
+
     clearCart();
     setModalOpen(false);
     router.push(`/order-confirmation?order=${order.id}`);
@@ -156,6 +168,7 @@ export default function CheckoutPage() {
         total={totalPrice}
         onClose={() => setModalOpen(false)}
         onConfirm={handleConfirmPayment}
+        submitting={placingOrder}
       />
     </div>
   );
