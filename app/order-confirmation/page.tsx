@@ -22,12 +22,27 @@ function OrderConfirmationContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get("order");
   const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!orderId) return;
-    const found = getOrders().find((o) => o.id === orderId) ?? null;
-    setOrder(found);
+    if (!orderId) {
+      setLoading(false);
+      return;
+    }
+    getOrders()
+      .then((orders) => {
+        setOrder(orders.find((o) => o.id === orderId) ?? null);
+      })
+      .finally(() => setLoading(false));
   }, [orderId]);
+
+  if (loading) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-24 text-center text-navy/50">
+        Loading your order…
+      </div>
+    );
+  }
 
   if (!order) {
     return (
