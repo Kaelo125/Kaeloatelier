@@ -50,6 +50,7 @@ export default function ProductCard({ product }: Props) {
             fill
             sizes="(max-width: 640px) 100vw, 320px"
             className="object-cover"
+            unoptimized={product.image.startsWith("data:")}
           />
         </div>
 
